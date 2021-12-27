@@ -7,6 +7,7 @@ results/*
 tmp*
 todo*
 tests/*
+output/
 
 src/.ipynb_checkpoints/*
 src/githubs/*
