@@ -139,6 +139,7 @@ WINDOW_SIZE = int(cfg_all["features"]["window_size"])
 # Output folder
 DST_FOLDER = args.output_folder + "/" + DST_FOLDER_NAME + "/"
 DST_SKELETON_FOLDER_NAME = cfg["output"]["skeleton_folder_name"]
+DST_HUMANS_FOLDER_NAME = cfg["output"]["human_folder_name"]
 DST_VIDEO_NAME = cfg["output"]["video_name"]
 # framerate of output video.avi
 DST_VIDEO_FPS = float(cfg["output"]["video_fps"])
@@ -306,9 +307,43 @@ def get_the_skeleton_data_to_save_to_disk(dict_id2skeleton):
         skels_to_save.append([[human_id, label] + skeleton.tolist()])
     return skels_to_save
 
+def analysis_result(human_count, img_count):
+    #1. create DST_HUMANS_FOLDER_NAME floder and each human folder
+    filepath = DST_FOLDER + DST_HUMANS_FOLDER_NAME # + DST_HUMANS_FOLDER_NAME.format(ith_img)
+    print(filepath)
+    #folder_path = os.path.dirname(filepath)
+    os.makedirs(filepath, exist_ok=True)
+    for index in range(human_count):
+        folder_path = filepath+"/"+str(index+1)
+        print(folder_path)
+        os.makedirs(folder_path, exist_ok=True)
+
+    # 2. create labels for each human
+    for ith_img in range(img_count):
+        print(DST_FOLDER + DST_SKELETON_FOLDER_NAME + SKELETON_FILENAME_FORMAT.format(ith_img))
+        ll = lib_commons.read_listlist(
+            DST_FOLDER + DST_SKELETON_FOLDER_NAME + SKELETON_FILENAME_FORMAT.format(ith_img)
+        )
+        print(ll)
+        for line in range(len(ll)):
+            print("list of list")
+            print(ll[line])
+            for item in range(len(ll[line])):
+                print("items")
+                print(ll[line][item])
+                for detail in range(len(ll[line][item])):
+                    print(ll[line][item][detail])
+        #ll[]
+        #print(ll[])
+
+
+
+
 
 # -- Main
 if __name__ == "__main__":
+
+    human_count = 0;
 
     # -- Detector, tracker, classifier
 
@@ -331,7 +366,7 @@ if __name__ == "__main__":
     # video writer
     video_writer = lib_images_io.VideoWriter(
         DST_FOLDER + DST_VIDEO_NAME, DST_VIDEO_FPS)
-
+    img_count = -1
     # -- Read images and process
     try:
         ith_img = -1
@@ -345,6 +380,8 @@ if __name__ == "__main__":
 
             # -- Detect skeletons
             humans = skeleton_detector.detect(img)
+            #print(f"\n {len(humans)} people(s) ...")
+            human_count = len(humans)
             skeletons, scale_h = skeleton_detector.humans_to_skels_list(humans)
             skeletons = remove_skeletons_with_few_joints(skeletons)
 
@@ -379,4 +416,7 @@ if __name__ == "__main__":
                 skels_to_save)
     finally:
         video_writer.stop()
+        img_count = ith_img + 1
         print("Program ends")
+
+    analysis_result(human_count, img_count)
