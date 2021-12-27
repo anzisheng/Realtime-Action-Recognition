@@ -1,4 +1,4 @@
-
+data_proc/
 data/*
 data_test/*
 papers/*
@@ -12,7 +12,7 @@ src/.ipynb_checkpoints/*
 src/githubs/*
 src/skeleton_data/*
 src/test_*
-
+src/optput
 doc/FeiyuChen*.pdf
 
 README2.md
