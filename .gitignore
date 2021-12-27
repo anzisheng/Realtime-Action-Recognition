@@ -13,6 +13,7 @@ src/githubs/*
 src/skeleton_data/*
 src/test_*
 src/optput
+src/optput/*
 doc/FeiyuChen*.pdf
 
 README2.md
