@@ -5,7 +5,8 @@
 #     In src/s2_put_skeleton_txts_to_a_single_txt.py,
 #     The image whose label is not in `classes` will be filtered out. 
 
-classes: ['dance', 'stand', 'walk', 'run', 'jump', 'sit', 'squat', 'kick', 'punch', 'wave' ]
+classes: ['dance', 'frog', 'jump', 'kick', 'punch', 'run', 'sit', 'squat', 'stand', 'walk', 'wave']
+#classes: ['dance', 'stand', 'walk', 'run', 'jump', 'sit', 'squat', 'kick', 'punch', 'wave' ]
 #classes: ['lying', 'other', 'sitting', 'standing']
 
 image_filename_format: "{:05d}.jpg"

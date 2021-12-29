@@ -13,6 +13,7 @@ Output:
     result skeleton: output/${video_name}/skeleton_res/XXXXX.txt
     visualization by cv2.imshow() in img_displayer
 '''
+import simplejson
 
 '''
 Example of usage:
@@ -43,6 +44,7 @@ python src/s5_test.py \
 
 import numpy as np
 import cv2
+from datetime import datetime
 import argparse
 if True:  # Include project path
     import sys
@@ -67,7 +69,7 @@ def par(path):  # Pre-Append ROOT to the path if it's not absolute
 
 # -- Command-line input
 
-
+#-t video -p data_test/frog.mp4
 def get_command_line_arguments():
 
     def parse_args():
@@ -319,25 +321,125 @@ def analysis_result(human_count, img_count):
         os.makedirs(folder_path, exist_ok=True)
 
     # 2. create labels for each human
+    print("start....")
     for ith_img in range(img_count):
         print(DST_FOLDER + DST_SKELETON_FOLDER_NAME + SKELETON_FILENAME_FORMAT.format(ith_img))
         ll = lib_commons.read_listlist(
             DST_FOLDER + DST_SKELETON_FOLDER_NAME + SKELETON_FILENAME_FORMAT.format(ith_img)
         )
         print(ll)
+
         for line in range(len(ll)):
             print("list of list")
             print(ll[line])
             for item in range(len(ll[line])):
                 print("items")
                 print(ll[line][item])
-                for detail in range(len(ll[line][item])):
-                    print(ll[line][item][detail])
+                #for detail in range(2): #(len(ll[line][item])):
+                    #print(ll[line][item][detail])
+                index = int(ll[line][item][0])
+                print(index)
+                label = ll[line][item][1]
+                print(label)
+                filename = filepath = DST_FOLDER + DST_HUMANS_FOLDER_NAME + "/" + str(index)+ ".txt"
+                print(filename)
+                exfile = open(filename, 'a')
+                #print(exfile)
+                exfile.write(label + "\n")
+                exfile.close()
+
+
+        """
+                index = int(ll[line][item][0])
+                print(index)
+                filename = filepath = DST_FOLDER + DST_HUMANS_FOLDER_NAME + "/" + str(index)
+                label = ll[line][item][1]
+                print(label)
+                with open(filename, 'w') as f:
+                    f.write(label)
+                        #simplejson.dump(, f)
+                    f.close()
+        """
         #ll[]
         #print(ll[])
 
 
 
+
+def parseAction(human_count, target):
+    #1.read action list
+    actions = []
+    for index in range(human_count):
+        filename =  DST_FOLDER + DST_HUMANS_FOLDER_NAME + "/" + str(index+1) + ".txt"
+        fp = open(filename, "r")
+        actions = fp.readlines()
+        fp.close()
+
+        #print(actions)
+
+        stati_list = []
+        repeat = 1
+        label_target = actions[0].strip("\n")
+        for index in range(len(actions)-1):
+            statistic = {}
+            if (label_target == actions[index+1].strip("\n")):
+                repeat += 1
+            else:
+                statistic[label_target] = repeat
+                stati_list.append(statistic.copy())
+                statistic.clear()
+                label_target = actions[index+1].strip("\n")
+                repeat = 1
+
+        print(stati_list)
+
+        start = 0
+        remove_noise = []
+        #remove the noise
+        for index in range(len(stati_list)):
+            values = list(stati_list[index].values())
+            #print(values)
+            if (values[0] > 5):
+                #del stati_list[index]
+                remove_noise.append(stati_list[index])
+
+        seperator = 0
+        for index in range(len(remove_noise)):
+            for key, values in remove_noise[index].items():
+                if key == "stand" or key == '':
+                    seperator += 1
+                print(key, values)
+
+        return  seperator+1
+
+        start = 0
+        #windowSize = 50
+        #delta = 25
+        #freq_dict = {}
+
+        #for x in actions[start: start + delta]:
+        #    freq_dict[x] = freq_dict.get(x, 0)+1
+        #print(freq_dict)
+
+        #找到所有的最大值，
+        #maxLabel = max(freq_dict, key=freq_dict.get)
+        #maxLabel = maxLabel.strip("\n")
+
+
+        freq_dict_new = {}
+        for x in actions[1:20]:
+            freq_dict_new[x] = freq_dict_new.get(x, 0) + 1
+        print(freq_dict_new)
+
+
+
+
+
+
+
+    #pass
+
+    #2. statistics the time of the action
 
 
 # -- Main
@@ -368,15 +470,47 @@ if __name__ == "__main__":
         DST_FOLDER + DST_VIDEO_NAME, DST_VIDEO_FPS)
     img_count = -1
     # -- Read images and process
+
+    startTime = 0.0
+    timeElapsed = 0.0
+    startCounter = False
+    nSecond = 20
     try:
         ith_img = -1
-        while images_loader.has_image():
-
+        while nSecond > 0: #images_loader.has_image():
             # -- Read image
             img = images_loader.read_image()
             ith_img += 1
+
+            if startCounter:
+                if nSecond > 0:  # < totalSec:
+                    # draw the Nth second on each frame
+                    # till one second passes
+                    cv2.putText(img=img,
+                                text=str(nSecond),  # strSec[nSecond],
+                                org=(int(640 / 2 - 20), int(480 / 2)),
+                                fontFace=cv2.FONT_HERSHEY_DUPLEX,
+                                fontScale=6,
+                                color=(255, 255, 255),
+                                thickness=5
+                                )
+                    timeElapsed = (datetime.now() - startTime).total_seconds()
+                    if timeElapsed >= 1:
+                        nSecond -= 1
+                        #                print 'nthSec:{}'.format(nSecond)
+                        timeElapsed = 0
+                        startTime = datetime.now()
+
+
+
+                else:
+                    startCounter = False
+                    nSecond = 20
+
+
             img_disp = img.copy()
             print(f"\nProcessing {ith_img}th image ...")
+
 
             # -- Detect skeletons
             humans = skeleton_detector.detect(img)
@@ -414,9 +548,21 @@ if __name__ == "__main__":
                 DST_FOLDER + DST_SKELETON_FOLDER_NAME +
                 SKELETON_FILENAME_FORMAT.format(ith_img),
                 skels_to_save)
+
+            keyPressed = cv2.waitKey(20)
+            if keyPressed == ord('s'):
+                startCounter = True
+                startTime = datetime.now()
+                print("start count ", startCounter)
+
     finally:
         video_writer.stop()
         img_count = ith_img + 1
         print("Program ends")
 
     analysis_result(human_count, img_count)
+
+    target = "frog"
+
+    repeat = parseAction(1, target)
+    print(repeat)
