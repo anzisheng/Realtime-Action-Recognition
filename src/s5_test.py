@@ -13,8 +13,12 @@ Output:
     result skeleton: output/${video_name}/skeleton_res/XXXXX.txt
     visualization by cv2.imshow() in img_displayer
 '''
+#from random import random
+import random
 import simplejson
+from scipy import signal #滤波等
 
+#https://github.com/monsieurv/py-findpeaks
 '''
 Example of usage:
 
@@ -344,8 +348,14 @@ def analysis_result(human_count, img_count):
                 filename = filepath = DST_FOLDER + DST_HUMANS_FOLDER_NAME + "/" + str(index)+ ".txt"
                 print(filename)
                 exfile = open(filename, 'a')
-                #print(exfile)
-                exfile.write(label + "\n")
+                exfile.write(label)
+
+                # RAngle:ll[line][item][20],ll[line][item][21]
+                # LAngle:ll[line][item][26],ll[line][item][27]
+
+                exfile.write(",{:.4f},{:.4f},{:.4f},{:.4f}".format(ll[line][item][20],ll[line][item][21],ll[line][item][26],ll[line][item][27]))
+
+                exfile.write("\n")
                 exfile.close()
 
 
@@ -360,90 +370,128 @@ def analysis_result(human_count, img_count):
                         #simplejson.dump(, f)
                     f.close()
         """
-        #ll[]
-        #print(ll[])
 
 
-
-
-def parseAction(human_count, target):
+def parseAction(human_count, target, expect):
     #1.read action list
+    #prior = 60//8
     actions = []
+    threshold  = 0
+    action_time = []
+    action_complete = []
+    times = []
+    change_time = 0
     for index in range(human_count):
         filename =  DST_FOLDER + DST_HUMANS_FOLDER_NAME + "/" + str(index+1) + ".txt"
         fp = open(filename, "r")
         actions = fp.readlines()
         fp.close()
+        threshold = 6 #int(len(actions) * 0.01)
 
         #print(actions)
-
+        all_actions = len(actions)
         stati_list = []
         repeat = 1
         label_target = actions[0].strip("\n")
-        for index in range(len(actions)-1):
-            statistic = {}
-            if (label_target == actions[index+1].strip("\n")):
-                repeat += 1
-            else:
-                statistic[label_target] = repeat
-                stati_list.append(statistic.copy())
-                statistic.clear()
-                label_target = actions[index+1].strip("\n")
-                repeat = 1
+        #data = actions[0].split(",")
+        ankle_ys = []
+        for index in range(len(actions)):
+            data = actions[index].strip("\n").split(",")
+            y = float(data[2]) #(float(data[2])+float(data[4])) / 2
+            ankle_ys.append(y)
 
-        print(stati_list)
+        print(ankle_ys)
+        xxx = np.arange(len(ankle_ys))
+        z1 = np.polyfit(xxx,ankle_ys,5)
+        p1 = np.poly1d(z1)
+        yvals = p1(xxx)
+        plt.plot(xxx, ankle_ys, 'r', label='original values')
+        plt.plot(xxx, yvals, 'r', label='polyfit values')
 
-        start = 0
-        remove_noise = []
-        #remove the noise
-        for index in range(len(stati_list)):
-            values = list(stati_list[index].values())
-            #print(values)
-            if (values[0] > 5):
-                #del stati_list[index]
-                remove_noise.append(stati_list[index])
+        indexes = signal.argrelextrema(
+            np.array(yvals),
+            comparator=np.greater, order=5
+        )
+        print('Peaks are: %s' % (indexes[0]))
 
-        seperator = 0
-        for index in range(len(remove_noise)):
-            for key, values in remove_noise[index].items():
-                if key == "stand" or key == '':
-                    seperator += 1
-                print(key, values)
+        num_peak_3 = signal.find_peaks(yvals, distance= len(yvals))
+        print(num_peak_3[0])
 
-        return  seperator+1
-
-        start = 0
-        #windowSize = 50
-        #delta = 25
-        #freq_dict = {}
-
-        #for x in actions[start: start + delta]:
-        #    freq_dict[x] = freq_dict.get(x, 0)+1
-        #print(freq_dict)
-
-        #找到所有的最大值，
-        #maxLabel = max(freq_dict, key=freq_dict.get)
-        #maxLabel = maxLabel.strip("\n")
-
-
-        freq_dict_new = {}
-        for x in actions[1:20]:
-            freq_dict_new[x] = freq_dict_new.get(x, 0) + 1
-        print(freq_dict_new)
+        plt.xlabel('x axis')
+        plt.ylabel('y axis')
+        plt.legend(loc=4)
+        plt.title('polyfitting')
+        plt.show()
 
 
 
+        #set the up or down according first two elements
+        if (ankle_ys[6] - ankle_ys[0] >= 0):
+            positive = True
+        else:
+            positive = False
+
+        step = 4
+
+        for index in range(0,len(ankle_ys)-step-1, step):
+
+            if positive:
+                if(ankle_ys[index+step] < ankle_ys[index]):
+                    positive = False
+                    change_time += 1
+                    continue
+            if not positive:
+                if(ankle_ys[index+step] > ankle_ys[index]):
+                    positive = True
+                    change_time+=1
+                    continue
+
+        times.append(change_time)
+    return  times
 
 
 
 
-    #pass
 
-    #2. statistics the time of the action
 
+def report(human_count, repeat, accuracy, expect):
+    #y = random.random()
+    #seperator = int(y * 3)
+    fp = open("report.txt", "w")
+    fp.write("测试结果：\n")
+    fp.write("有{}人参加了测试。\n".format(human_count))
+    fp.write("老师期望一分钟内完成{}次。\n".format(expect))
+    #prior = 60//8
+    fp.write("每个人的完成次数分别是：\n")
+    delta = 0
+    accu = 0
+    for index in range(len(repeat)):
+        delta += (expect-repeat[index]) * (expect-repeat[index])
+        #fp.write(“第{d}个人完成{d}次\n".format(index, repeat[index]))
+        fp.write("第{}个人完成{}次, 完成精度是:{}\n".format(index+1, repeat[index], round(accuracy[index], 2)))
+        accu += accuracy[index]
+
+    accu /= len(accuracy)
+    accu = round(accu, 2)
+    test_count = 100-(10-human_count)
+    fp.write("参加测试人数得分：{}\n".format(test_count))
+    accord = 100 - delta
+    fp.write("整体的整齐度得分:{}:\n".format(accord))
+    accu_all = 100 *(accu)
+    fp.write("整体动作精准度得分为：{}\n".format(int(accu_all)))
+    fp.write("綜合得分是:{}".format(int((accu_all+accord+test_count)/3)))
+    fp.close()
+    #预计完成10次， 得分：，准确率
+    #A = U * sigma * VT
 
 # -- Main
 if __name__ == "__main__":
+
+    #report(3, [3,3,5])
+    target = "frog"
+    expect = 60 // 10
+    repeat  = parseAction(1,target, 1)
+    #print(repeat)
 
     human_count = 0;
 
@@ -460,7 +508,6 @@ if __name__ == "__main__":
     img_displayer = lib_images_io.ImageDisplayer()
 
     # -- Init output
-
     # output folder
     os.makedirs(DST_FOLDER, exist_ok=True)
     os.makedirs(DST_FOLDER + DST_SKELETON_FOLDER_NAME, exist_ok=True)
@@ -474,10 +521,10 @@ if __name__ == "__main__":
     startTime = 0.0
     timeElapsed = 0.0
     startCounter = False
-    nSecond = 20
+    nSecond = 60
     try:
         ith_img = -1
-        while nSecond > 0: #images_loader.has_image():
+        while (nSecond > 0 and images_loader.has_image()):
             # -- Read image
             img = images_loader.read_image()
             ith_img += 1
@@ -488,10 +535,10 @@ if __name__ == "__main__":
                     # till one second passes
                     cv2.putText(img=img,
                                 text=str(nSecond),  # strSec[nSecond],
-                                org=(int(640 / 2 - 20), int(480 / 2)),
+                                org=(int(240 / 2 - 20), int(480 / 2)),
                                 fontFace=cv2.FONT_HERSHEY_DUPLEX,
                                 fontScale=6,
-                                color=(255, 255, 255),
+                                color=(255, 0, 0),
                                 thickness=5
                                 )
                     timeElapsed = (datetime.now() - startTime).total_seconds()
@@ -500,29 +547,24 @@ if __name__ == "__main__":
                         #                print 'nthSec:{}'.format(nSecond)
                         timeElapsed = 0
                         startTime = datetime.now()
-
-
-
                 else:
                     startCounter = False
-                    nSecond = 20
-
+                    nSecond = 60
 
             img_disp = img.copy()
             print(f"\nProcessing {ith_img}th image ...")
 
-
-            # -- Detect skeletons
+            # -- Detect skeletons 从单帧图像中检测个体
             humans = skeleton_detector.detect(img)
-            #print(f"\n {len(humans)} people(s) ...")
-            human_count = len(humans)
+            #从每个个体中获取骨架信息
             skeletons, scale_h = skeleton_detector.humans_to_skels_list(humans)
+            #在追踪前去除不好的骨架
             skeletons = remove_skeletons_with_few_joints(skeletons)
 
             # -- Track people
             dict_id2skeleton = multiperson_tracker.track(
                 skeletons)  # int id -> np.array() skeleton
-
+            human_count = len(dict_id2skeleton)
             # -- Recognize action of each person
             if len(dict_id2skeleton):
                 dict_id2label = multiperson_classifier.classify(
@@ -549,20 +591,21 @@ if __name__ == "__main__":
                 SKELETON_FILENAME_FORMAT.format(ith_img),
                 skels_to_save)
 
-            keyPressed = cv2.waitKey(20)
+            keyPressed = cv2.waitKey(100)
             if keyPressed == ord('s'):
                 startCounter = True
                 startTime = datetime.now()
                 print("start count ", startCounter)
-
     finally:
         video_writer.stop()
         img_count = ith_img + 1
         print("Program ends")
-
     analysis_result(human_count, img_count)
-
-    target = "frog"
-
-    repeat = parseAction(1, target)
+    target = "wave"
+    expect = 60//10
+    repeat = parseAction(human_count, target, expect)
+    print("result:")
     print(repeat)
+    #print(accuracy)
+    #expect = 3
+    #report(human_count, repeat, accuracy, expect)

@@ -80,7 +80,11 @@ class SkeletonDetector(object):
         self._tf_pose_estimator = TfPoseEstimator(
             get_graph_path(self._model), 
             target_size=(self._w, self._h),
-            tf_config=self._config)
+            tf_config=self._config
+
+
+
+        )
         self._prev_t = time.time()
         self._cnt_image = 0
         
